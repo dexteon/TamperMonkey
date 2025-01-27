@@ -1,0 +1,87 @@
+// ==UserScript==
+// @name         Instacart Sales Page Loader & Sorter
+// @description  Automatically scrolls, loads, and sorts sale items by price on Instacart.
+// @version      1.3
+// @license      MIT
+// @match        https://www.instacart.com/store/*/collections/dynamic_collection*
+// @grant        none
+// ==/UserScript==
+
+(function () {
+  "use strict";
+
+  // Helper function to scroll to the bottom of the page
+  async function scrollToBottom(times = 10, delay = 2000) {
+    for (let i = 1; i <= times; i++) {
+      console.log(`Scroll attempt ${i} completed.`);
+      window.scrollTo(0, document.body.scrollHeight);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+    console.log("Finished scrolling to load items.");
+  }
+
+  // Function to dynamically find the correct product list container
+  function getProductList() {
+    // Select all <ul> elements
+    const allLists = document.querySelectorAll("ul");
+    for (const list of allLists) {
+      // Check if this <ul> contains product-like <li> elements
+      const productItems = Array.from(list.querySelectorAll("li"));
+      if (
+        productItems.length > 0 &&
+        productItems.some((item) =>
+          item.querySelector("span.e-1ip314g") // Check if a product price element exists
+        )
+      ) {
+        console.log("Product list found:", list);
+        return list;
+      }
+    }
+    return null; // Return null if no valid list is found
+  }
+
+  // Function to extract products and sort them by price
+  function sortProducts() {
+    console.log("Attempting to sort products...");
+
+    const productList = getProductList(); // Dynamically find the correct list
+    if (!productList) {
+      console.error("No valid product list found.");
+      return;
+    }
+
+    const products = Array.from(productList.querySelectorAll("li"));
+    if (!products.length) {
+      console.error("No products found to sort.");
+      return;
+    }
+
+    const pricePattern = /[\d,.]+/;
+
+    // Map products to their prices, sort them, and reinsert into DOM
+    const sortedProducts = products
+      .map((product) => {
+        const priceElement = product.querySelector("span.e-1ip314g");
+        const priceText = priceElement?.textContent.match(pricePattern);
+        const price = priceText ? parseFloat(priceText[0].replace(/,/g, "")) : Infinity;
+        return { product, price };
+      })
+      .sort((a, b) => a.price - b.price);
+
+    // Clear and reappend sorted products
+    productList.innerHTML = "";
+    sortedProducts.forEach(({ product }) => productList.appendChild(product));
+
+    console.log("Products sorted by price (low to high).");
+  }
+
+  // Main function to automate scrolling and sorting
+  async function main() {
+    console.log("Starting automated scrolling and sorting...");
+    await scrollToBottom(10); // Adjust scroll attempts or delay if needed
+    sortProducts();
+  }
+
+  // Delay script start to ensure page fully loads
+  setTimeout(main, 5000);
+})();
